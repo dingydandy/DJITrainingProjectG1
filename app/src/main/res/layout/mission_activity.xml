@@ -15,8 +15,52 @@
             android:text="指点飞行"
             android:gravity="center"
             android:textColor="#000000"
-            android:textSize="21sp"
-            />
+            android:textSize="16sp" />
+        <TextView
+            android:id="@+id/altitudeTextview"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="高度："
+            android:gravity="center"
+            android:textColor="#000000"
+            android:textSize="16sp"
+            android:layout_marginLeft="20dp"/>
+        <TextView
+            android:id="@+id/horizontal_velocity"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="水平："
+            android:gravity="center"
+            android:textColor="#000000"
+            android:textSize="16sp"
+            android:layout_marginLeft="20dp"/>
+        <TextView
+            android:id="@+id/vertical_velocity"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="垂直："
+            android:gravity="center"
+            android:textColor="#000000"
+            android:textSize="16sp"
+            android:layout_marginLeft="20dp"/>
+        <TextView
+            android:id="@+id/flightMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:gravity="center"
+            android:textColor="#000000"
+            android:textSize="16sp"
+            android:layout_marginLeft="20dp"/>
+        <TextView
+            android:id="@+id/batteryRemaining"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="电池："
+            android:gravity="center"
+            android:textColor="#000000"
+            android:textSize="16sp"
+            android:layout_marginLeft="20dp"/>
     </LinearLayout>
     <LinearLayout
         android:layout_width="match_parent"
@@ -26,19 +70,19 @@
             android:id="@+id/locate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Locate"
+            android:text="定位"
             android:layout_weight="1"/>
         <Button
             android:id="@+id/add"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Add"
+            android:text="添加"
             android:layout_weight="1"/>
         <Button
             android:id="@+id/clear"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Clear"
+            android:text="清除"
             android:layout_weight="1"/>
     </LinearLayout>
 
@@ -50,25 +94,55 @@
             android:id="@+id/config"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Config"
+            android:text="配置"
             android:layout_weight="0.9"/>
         <Button
             android:id="@+id/upload"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Upload"
+            android:text="上传"
             android:layout_weight="0.9"/>
         <Button
             android:id="@+id/start"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Start"
+            android:text="开始"
             android:layout_weight="1"/>
         <Button
             android:id="@+id/stop"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Stop"
+            android:text="停止"
+            android:layout_weight="1"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <Button
+            android:id="@+id/pause"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="暂停"
+            android:layout_weight="0.9"/>
+        <Button
+            android:id="@+id/resume"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="继续"
+            android:layout_weight="0.9"/>
+        <Button
+            android:id="@+id/confirmLanding"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="确认降落"
+            android:layout_weight="1"/>
+        <Button
+            android:id="@+id/cancelLanding"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="取消降落"
             android:layout_weight="1"/>
     </LinearLayout>
 

@@ -1,12 +1,9 @@
 package com.dji.training.g1;
 
 import android.app.AlertDialog;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.DialogInterface;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.FragmentActivity;
 import android.util.Log;
@@ -34,9 +31,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import dji.common.battery.AggregationState;
+import dji.common.battery.BatteryState;
 import dji.common.error.DJIError;
 import dji.common.flightcontroller.FlightControllerState;
+import dji.common.flightcontroller.FlightMode;
 import dji.common.mission.waypoint.Waypoint;
+import dji.common.mission.waypoint.WaypointAction;
+import dji.common.mission.waypoint.WaypointActionType;
 import dji.common.mission.waypoint.WaypointMission;
 import dji.common.mission.waypoint.WaypointMissionDownloadEvent;
 import dji.common.mission.waypoint.WaypointMissionExecutionEvent;
@@ -44,15 +46,14 @@ import dji.common.mission.waypoint.WaypointMissionFinishedAction;
 import dji.common.mission.waypoint.WaypointMissionFlightPathMode;
 import dji.common.mission.waypoint.WaypointMissionHeadingMode;
 import dji.common.mission.waypoint.WaypointMissionUploadEvent;
-import dji.common.useraccount.UserAccountState;
 import dji.common.util.CommonCallbacks;
 import dji.sdk.base.BaseProduct;
+import dji.sdk.battery.Battery;
 import dji.sdk.flightcontroller.FlightController;
 import dji.sdk.mission.waypoint.WaypointMissionOperator;
 import dji.sdk.mission.waypoint.WaypointMissionOperatorListener;
 import dji.sdk.products.Aircraft;
 import dji.sdk.sdkmanager.DJISDKManager;
-import dji.sdk.useraccount.UserAccountManager;
 
 public class MissionActivity extends FragmentActivity implements View.OnClickListener, AMap.OnMapClickListener {
     protected static final String TAG = "MainActivity";
@@ -62,6 +63,9 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
 
     private Button locate, add, clear;
     private Button config, upload, start, stop;
+    private Button pause, resume, confirmLanding, cancelLanding;
+
+    private TextView altitudeTextview, horizontal_velocity, vertical_velocity, flightMode, batteryRemaining;
 
     private boolean isAdd = false;
 
@@ -69,7 +73,7 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
     private final Map<Integer, Marker> mMarkers = new ConcurrentHashMap<Integer, Marker>();
     private Marker droneMarker = null;
 
-    private float altitude = 100.0f;
+    private float altitude = 10.0f;
     private float mSpeed = 10.0f;
 
     private List<Waypoint> waypointList = new ArrayList<>();
@@ -123,6 +127,10 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
         upload = (Button) findViewById(R.id.upload);
         start = (Button) findViewById(R.id.start);
         stop = (Button) findViewById(R.id.stop);
+        pause = (Button) findViewById(R.id.pause);
+        resume = (Button) findViewById(R.id.resume);
+        confirmLanding = (Button) findViewById(R.id.confirmLanding);
+        cancelLanding = (Button) findViewById(R.id.cancelLanding);
 
         locate.setOnClickListener(this);
         add.setOnClickListener(this);
@@ -131,7 +139,16 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
         upload.setOnClickListener(this);
         start.setOnClickListener(this);
         stop.setOnClickListener(this);
+        pause.setOnClickListener(this);
+        resume.setOnClickListener(this);
+        confirmLanding.setOnClickListener(this);
+        cancelLanding.setOnClickListener(this);
 
+        altitudeTextview = (TextView) findViewById(R.id.altitudeTextview);
+        horizontal_velocity = (TextView) findViewById(R.id.horizontal_velocity);
+        vertical_velocity = (TextView) findViewById(R.id.vertical_velocity);
+        flightMode = (TextView) findViewById(R.id.flightMode);
+        batteryRemaining = (TextView) findViewById(R.id.batteryRemaining);
     }
 
     private void initMapView() {
@@ -177,16 +194,6 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
 
         if (mFlightController != null) {
 
-            mFlightController.setStateCallback(
-                    new FlightControllerState.Callback() {
-                        @Override
-                        public void onUpdate(FlightControllerState
-                                                     djiFlightControllerCurrentState) {
-                            droneLocationLat = djiFlightControllerCurrentState.getAircraftLocation().getLatitude();
-                            droneLocationLng = djiFlightControllerCurrentState.getAircraftLocation().getLongitude();
-                            updateDroneLocation();
-                        }
-                    });
 
             mFlightController.setMaxFlightRadiusLimitationEnabled(true, new CommonCallbacks.CompletionCallback() {
                 @Override
@@ -195,6 +202,14 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
                     setMaxFlightHeight(200);
                 }
             });
+            mFlightController.setGoHomeHeightInMeters(20, new CommonCallbacks.CompletionCallback() {
+                @Override
+                public void onResult(DJIError djiError) {
+
+                }
+            });
+            getFlightInfos();
+            getBatteryInfos();
         }
     }
 
@@ -250,6 +265,9 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
         if (isAdd == true){
             markWaypoint(point);
             Waypoint mWaypoint = new Waypoint(point.latitude, point.longitude, altitude);
+            mWaypoint.addAction(new WaypointAction(WaypointActionType.GIMBAL_PITCH, -89));
+            mWaypoint.addAction(new WaypointAction(WaypointActionType.START_TAKE_PHOTO, 0));
+            mWaypoint.addAction(new WaypointAction(WaypointActionType.GIMBAL_PITCH, 0));
             //Add Waypoints to Waypoint arraylist;
             if (waypointMissionBuilder != null) {
                 waypointList.add(mWaypoint);
@@ -342,6 +360,22 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
                 stopWaypointMission();
                 break;
             }
+            case R.id.pause: {
+                pauseWaypointMission();
+                break;
+            }
+            case R.id.resume: {
+                resumeWaypointMission();
+                break;
+            }
+            case R.id.confirmLanding: {
+                confirmLanding();
+                break;
+            }
+            case R.id.cancelLanding: {
+                cancelLanding();
+                break;
+            }
             default:
                 break;
         }
@@ -358,10 +392,10 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
     private void enableDisableAdd(){
         if (isAdd == false) {
             isAdd = true;
-            add.setText("Exit");
+            add.setText("退出");
         }else{
             isAdd = false;
-            add.setText("Add");
+            add.setText("添加");
         }
     }
 
@@ -539,6 +573,46 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
 
     }
 
+    private void pauseWaypointMission() {
+        getWaypointMissionOperator().pauseMission(new CommonCallbacks.CompletionCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                setResultToToast("Mission Pause: " + (djiError == null ? "Successfully" : djiError.getDescription()));
+            }
+        });
+    }
+
+    private void resumeWaypointMission() {
+        getWaypointMissionOperator().resumeMission(new CommonCallbacks.CompletionCallback() {
+            @Override
+            public void onResult(DJIError djiError) {
+                setResultToToast("Mission Pause: " + (djiError == null ? "Successfully" : djiError.getDescription()));
+            }
+        });
+    }
+
+    private void confirmLanding() {
+        if(mFlightController != null) {
+            mFlightController.confirmLanding(new CommonCallbacks.CompletionCallback() {
+                @Override
+                public void onResult(DJIError djiError) {
+                    setResultToToast("Confirm Landing: " + (djiError == null ? "Successfully" : djiError.getDescription()));
+                }
+            });
+        }
+    }
+
+    private void cancelLanding() {
+        if(mFlightController != null) {
+            mFlightController.cancelLanding(new CommonCallbacks.CompletionCallback() {
+                @Override
+                public void onResult(DJIError djiError) {
+                    setResultToToast("Cancel Landing: " + (djiError == null ? "Successfully" : djiError.getDescription()));
+                }
+            });
+        }
+    }
+
     private void setMaxFlightRadius(int r) {
         mFlightController.setMaxFlightRadius(r, new CommonCallbacks.CompletionCallback() {
             @Override
@@ -553,6 +627,86 @@ public class MissionActivity extends FragmentActivity implements View.OnClickLis
             @Override
             public void onResult(DJIError djiError) {
 
+            }
+        });
+    }
+
+    private void getFlightInfos() {
+        if(mFlightController != null) {
+            mFlightController.setStateCallback(new FlightControllerState.Callback() {
+                @Override
+                public void onUpdate(@NonNull FlightControllerState flightControllerState) {
+                    float vx = flightControllerState.getVelocityX();
+                    float vy = flightControllerState.getVelocityY();
+                    float vz = flightControllerState.getVelocityZ();
+                    float vh = (float)Math.sqrt(vx * vx + vy * vy);
+                    float vv = vz;
+                    updateVelocity(vh, vv);
+
+                    float alt = flightControllerState.getAircraftLocation().getAltitude();
+                    updateAltitude(alt);
+
+                    FlightMode mode = flightControllerState.getFlightMode();
+                    updateFlightMode(mode);
+                    droneLocationLat = flightControllerState.getAircraftLocation().getLatitude();
+                    droneLocationLng = flightControllerState.getAircraftLocation().getLongitude();
+                    updateDroneLocation();
+                }
+            });
+        }
+    }
+
+    private void getBatteryInfos() {
+        Battery battery = DJITrainingApplication.getProductInstance().getBattery();
+        if(battery != null) {
+            battery.setStateCallback(new BatteryState.Callback() {
+                @Override
+                public void onUpdate(BatteryState batteryState) {
+                    int remaining = batteryState.getChargeRemainingInPercent();
+                    updateBatteryRemaining(remaining);
+                }
+            });
+        }
+    }
+
+    private void updateVelocity(final float vh, final float vv) {
+        horizontal_velocity.post(new Runnable() {
+            @Override
+            public void run() {
+                horizontal_velocity.setText("水平：" + String.valueOf(vh) + " 米/秒");
+            }
+        });
+        vertical_velocity.post(new Runnable() {
+            @Override
+            public void run() {
+                vertical_velocity.setText("垂直：" + String.valueOf(vv) + " 米/秒");
+            }
+        });
+    }
+
+    private void updateAltitude(final float alt) {
+        altitudeTextview.post(new Runnable() {
+            @Override
+            public void run() {
+                altitudeTextview.setText("高度：" + String.valueOf(alt) + " 米");
+            }
+        });
+    }
+
+    private void updateFlightMode(final FlightMode mode) {
+        flightMode.post(new Runnable() {
+            @Override
+            public void run() {
+                flightMode.setText(mode.toString());
+            }
+        });
+    }
+
+    private void updateBatteryRemaining(final int remaining) {
+        batteryRemaining.post(new Runnable() {
+            @Override
+            public void run() {
+                batteryRemaining.setText("电池：" + String.valueOf(remaining) + " %");
             }
         });
     }
