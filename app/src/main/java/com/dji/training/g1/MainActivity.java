@@ -2,6 +2,7 @@ package com.dji.training.g1;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -13,6 +14,7 @@ import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.greenrobot.eventbus.EventBus;
@@ -29,6 +31,7 @@ import dji.common.useraccount.UserAccountState;
 import dji.common.util.CommonCallbacks;
 import dji.sdk.base.BaseComponent;
 import dji.sdk.base.BaseProduct;
+import dji.sdk.products.Aircraft;
 import dji.sdk.sdkmanager.DJISDKManager;
 import dji.sdk.useraccount.UserAccountManager;
 
@@ -55,6 +58,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
     private List<String> missingPermission = new ArrayList<>();
     private AtomicBoolean isRegistrationInProgress = new AtomicBoolean(false);
     private Button loginBtn, logoutBtn, enterBtn;
+    private TextView droneType;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,6 +76,8 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
         enterBtn = (Button) findViewById(R.id.enterBtn);
         enterBtn.setOnClickListener(this);
+
+        droneType = (TextView) findViewById(R.id.droneType);
     }
 
     @Override
@@ -98,6 +104,28 @@ public class MainActivity extends Activity implements View.OnClickListener {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void onConnectChange(DJITrainingApplication.ConnectivityChangeEvent event) {
+        if(event == DJITrainingApplication.ConnectivityChangeEvent.ProductConnected) {
+            ToastUtils.setResultToToast("connected");
+            BaseProduct mProduct = DJITrainingApplication.getProductInstance();
+
+            if (null != mProduct && mProduct.isConnected()) {
+                Log.v(TAG, "refreshSDK: True");
+                enterBtn.setEnabled(true);
+
+                String str = mProduct instanceof Aircraft ? "DJIAircraft" : "DJIHandHeld";
+                droneType.setText("Status: " + str + " connected");
+
+                if (null != mProduct.getModel()) {
+                    droneType.setText("" + mProduct.getModel().getDisplayName());
+                }
+
+            }
+        }
+        else if(event == DJITrainingApplication.ConnectivityChangeEvent.ProductDisconnected) {
+            ToastUtils.setResultToToast("disconnected");
+            enterBtn.setEnabled(false);
+            droneType.setText("Hello!");
+        }
 
     }
 
@@ -175,12 +203,12 @@ public class MainActivity extends Activity implements View.OnClickListener {
         @Override
         public void onProductDisconnect() {
             Log.d(TAG, "onProductDisconnect");
-            DJITrainingApplication.notifyStatusChange(DJITrainingApplication.ConnectivityChangeEvent.ProductConnected);
+            DJITrainingApplication.notifyStatusChange(DJITrainingApplication.ConnectivityChangeEvent.ProductDisconnected);
         }
         @Override
         public void onProductConnect(BaseProduct baseProduct) {
             Log.d(TAG, String.format("onProductConnect newProduct:%s", baseProduct));
-            DJITrainingApplication.notifyStatusChange(DJITrainingApplication.ConnectivityChangeEvent.ProductDisconnected);
+            DJITrainingApplication.notifyStatusChange(DJITrainingApplication.ConnectivityChangeEvent.ProductConnected);
         }
         @Override
         public void onComponentChange(BaseProduct.ComponentKey componentKey, BaseComponent oldComponent,
@@ -222,7 +250,7 @@ public class MainActivity extends Activity implements View.OnClickListener {
                 logoutAccount();
                 break;
             case R.id.enterBtn:
-//                startActivity(new Intent(this, MissionActivity.class));
+                startActivity(new Intent(this, MissionActivity.class));
             default:
                 break;
         }
